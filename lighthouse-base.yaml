@@ -1,0 +1,143 @@
+
+output:
+  - platform: ledc
+    pin: GPIO1
+    frequency: 1kHz
+    id: dimming_gpio
+
+light:
+  - platform: monochromatic
+    name: "White light"
+    output: dimming_gpio
+    gamma_correct: 1.8
+    restore_mode: RESTORE_DEFAULT_OFF
+
+  - platform: esp32_rmt_led_strip
+    rgb_order: GRB
+    pin: GPIO2
+    num_leds: 8
+    rmt_channel: 0
+    chipset: ws2812
+    name: "RGB light"
+    restore_mode: RESTORE_DEFAULT_OFF
+
+sensor:
+  - platform: binary_sensor_map
+    type: sum
+    channels: 
+      - binary_sensor: dip_sw_0
+        value: 1
+      - binary_sensor: dip_sw_1
+        value: 2
+      - binary_sensor: dip_sw_2
+        value: 4
+      - binary_sensor: dip_sw_3
+        value: 8
+      - binary_sensor: dip_sw_4
+        value: 16
+      - binary_sensor: dip_sw_5
+        value: 32
+    name: "DIP ID Configuration"
+
+  - platform: internal_temperature
+    name: "Internal Temperature of ESP32"
+
+binary_sensor:
+  - platform: gpio
+    pin: 
+      number: GPIO09
+      inverted: True
+      mode: 
+        input: True
+        pullup: True
+    name: "Roof button"
+    filters:
+      - delayed_on: 10ms
+      - delayed_off: 10ms
+
+  - platform: gpio
+    pin: 
+      number: GPIO00
+      inverted: True
+      mode: 
+        input: True
+        pullup: True
+    name: "Front button"
+    filters:
+      - delayed_on: 10ms
+      - delayed_off: 10ms
+
+
+  - platform: gpio
+    pin: 
+      number: GPIO07
+      inverted: True
+      mode: 
+        input: True
+        pullup: True
+    id: dip_sw_0
+
+  - platform: gpio
+    pin: 
+      number: GPIO06
+      inverted: True
+      mode: 
+        input: True
+        pullup: True
+    id: dip_sw_1
+
+  - platform: gpio
+    pin: 
+      number: GPIO05
+      inverted: True
+      mode: 
+        input: True
+        pullup: True
+    id: dip_sw_2
+
+  - platform: gpio
+    pin: 
+      number: GPIO04
+      inverted: True
+      mode: 
+        input: True
+        pullup: True
+    id: dip_sw_3
+
+  - platform: gpio
+    pin: 
+      number: GPIO03
+      inverted: True
+      mode: 
+        input: True
+        pullup: True
+    id: dip_sw_4
+
+  - platform: gpio
+    pin: 
+      number: GPIO21
+      inverted: True
+      mode: 
+        input: True
+        pullup: True
+    id: dip_sw_5
+
+  - platform: gpio
+    pin: 
+      number: GPIO20
+      inverted: True
+      mode: 
+        input: True
+        pullup: True
+    id: dip_sw_6
+    name: "DIP Y/Y"
+
+  - platform: gpio
+    pin: 
+      number: GPIO10
+      inverted: True
+      mode: 
+        input: True
+        pullup: True
+    id: dip_sw_7
+    name: "DIP Primary/Secondary"
