@@ -1,0 +1,5 @@
+packages:
+  lighthouse: 
+    url: https://github.com/MikkoTervala/lighthouse-firmware
+    files: [lighthouse-base.yaml]
+    refresh: 0s

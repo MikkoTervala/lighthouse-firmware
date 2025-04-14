@@ -1,3 +1,59 @@
+esphome:
+  name: lighthouse
+  friendly_name: Lighthouse
+  name_add_mac_suffix: true
+  on_boot:
+    priority: 250
+    then: # https://github.com/esphome/feature-requests/issues/1762
+      - lambda: |-
+          auto name = App.get_name();
+          // id(mqtt_client)->set_topic_prefix(name);
+          id(mqtt_client)->set_birth_message(mqtt::MQTTMessage{
+              .topic = name + "/status",
+              .payload = "online",
+              .qos = 0,
+              .retain = true,
+          });
+          id(mqtt_client)->set_last_will(mqtt::MQTTMessage{
+              .topic = name + "/status",
+              .payload = "offline",
+              .qos = 0,
+              .retain = true,
+          });
+          id(mqtt_client)->set_shutdown_message(mqtt::MQTTMessage{
+              .topic = name + "/status",
+              .payload = "offline",
+              .qos = 0,
+              .retain = true,
+          });
+          id(mqtt_client)->set_log_message_template(mqtt::MQTTMessage{
+              .topic = name + "/logger",
+              .payload = "",
+              .qos = 0,
+              .retain = true,
+          });
+
+esp32:
+  board: esp32-c3-devkitm-1
+  framework:
+    type: esp-idf
+
+wifi:
+  id: wifi_id
+  ap:
+    ssid: "Lighthouse-Fallback"
+
+api:
+  id: api_id
+
+ota:
+  - platform: esphome
+    id: ota_esphome
+
+logger:
+  logs:
+    number: INFO
+    light: INFO
 
 output:
   - platform: ledc
