@@ -1,0 +1,357 @@
+esphome:
+  name: lighthouse-core
+  friendly_name: "Lighthouse Core"
+  name_add_mac_suffix: true
+  on_boot:
+    priority: 250
+    then: # https://github.com/esphome/feature-requests/issues/1762
+      - lambda: |-
+          auto name = App.get_name();
+          // id(mqtt_client)->set_topic_prefix(name);
+          id(mqtt_client)->set_birth_message(mqtt::MQTTMessage{
+              .topic = name + "/status",
+              .payload = "online",
+              .qos = 0,
+              .retain = true,
+          });
+          id(mqtt_client)->set_last_will(mqtt::MQTTMessage{
+              .topic = name + "/status",
+              .payload = "offline",
+              .qos = 0,
+              .retain = true,
+          });
+          id(mqtt_client)->set_shutdown_message(mqtt::MQTTMessage{
+              .topic = name + "/status",
+              .payload = "offline",
+              .qos = 0,
+              .retain = true,
+          });
+          id(mqtt_client)->set_log_message_template(mqtt::MQTTMessage{
+              .topic = name + "/logger",
+              .payload = "",
+              .qos = 0,
+              .retain = true,
+          });
+      # - delay: 3s
+      # - mqtt.enable:
+      - light.turn_on:
+          id: rgb_light
+          brightness: 50%
+          red: 0%
+          green: 100%
+          blue: 0%
+          transition_length: 500ms
+      - delay: 1s
+      - wait_until:
+          condition:
+            wifi.connected:
+      - light.turn_off:
+          id: rgb_light
+          transition_length: 500ms
+
+  project: 
+    name: Mikko Tervala.Lighthouse-core
+    version: 2025.9.3
+    on_update:
+      - logger.log: "New firmware version detected during boot"
+
+esp32:
+  board: esp32-c3-devkitm-1
+  framework:
+    type: esp-idf
+
+improv_serial:
+
+wifi:
+  # id: wifi_id
+  ap:
+  # use_address: 10.50.50.113
+  use_address: 10.10.10.222
+  # use_address: 10.50.50.109
+
+captive_portal:
+
+web_server:
+  port: 80
+  version: 3
+
+
+mqtt:
+  id: mqtt_client
+  broker: !secret lighthouse_mqtt_broker
+  username: !secret lighthouse_mqtt_username
+  password: !secret lighthouse_mqtt_password
+  port: 8883
+  # enable_on_boot: False
+  log_topic:
+    topic: placeholder-replaced-at-startup
+    level: INFO
+  discover_ip: false
+  discovery: false
+  idf_send_async: True
+  skip_cert_cn_check: False
+  certificate_authority: !secret lighthouse_certificate_authority
+    
+
+api:
+  id: api_id
+  reboot_timeout: 0s
+
+http_request:
+
+update:
+  - platform: http_request
+    id: ota_http_update
+    name: Lighthouse OTA
+    source: !secret lighthouse_core_ota_manifest
+    update_interval: 30min
+    # on_update_available:
+    #   then:
+    #     - logger.log:
+    #         level: INFO
+    #         format: "New update available, installing now"
+    #     - update.perform: ota_http_update
+
+ota:
+  - platform: http_request
+  - platform: esphome
+    id: ota_esphome
+
+logger:
+  logs:
+    number: INFO
+    light: INFO
+    sensor: INFO
+    script: INFO
+
+# debug:
+#   update_interval: 10s
+
+text_sensor:
+  # - platform: debug
+  #   device:
+  #     name: "Device Info"
+  #     state_topic: null
+
+  - platform: wifi_info
+    ip_address:
+      name: ESP IP Address
+      address_0:
+        name: ESP IP Address 0
+      address_1:
+        name: ESP IP Address 1
+    ssid:
+      name: ESP Connected SSID
+
+number:
+
+switch:
+  - platform: factory_reset
+    name: Restart with Factory Default Settings
+    entity_category: config
+    state_topic: null
+    command_topic: null
+
+  - platform: template
+    name: Apply OTA HTTP update
+    id: apply_ota_http_update
+    turn_on_action: 
+      then:
+        - update.perform:
+            id: ota_http_update
+        - delay: 1s
+        - switch.turn_off: apply_ota_http_update
+    entity_category: config
+
+  - platform: restart
+    name: "Restart"
+
+
+output:
+  - platform: ledc
+    pin: GPIO1
+    frequency: 1kHz
+    id: dimming_gpio
+
+light:
+  - platform: monochromatic
+    name: "White light"
+    id: white_light
+    output: dimming_gpio
+    gamma_correct: 1.5
+    restore_mode: ALWAYS_OFF
+    default_transition_length: 10s
+    # state_topic: null
+    # command_topic: null
+    # entity_category: diagnostic
+
+  - platform: esp32_rmt_led_strip
+    rgb_order: GRB
+    pin: 
+      number: GPIO2
+      ignore_strapping_warning: True
+    num_leds: 8
+    # rmt_channel: 0
+    chipset: ws2812
+    name: "RGB light"
+    id: rgb_light
+    gamma_correct: 1.5
+    restore_mode: ALWAYS_OFF
+    default_transition_length: 10s
+    # state_topic: null
+    # command_topic: null
+    # entity_category: diagnostic
+
+sensor:
+  - platform: binary_sensor_map
+    type: sum
+    channels: 
+      - binary_sensor: dip_sw_0
+        value: 1
+      - binary_sensor: dip_sw_1
+        value: 2
+      - binary_sensor: dip_sw_2
+        value: 4
+      - binary_sensor: dip_sw_3
+        value: 8
+      - binary_sensor: dip_sw_4
+        value: 16
+      - binary_sensor: dip_sw_5
+        value: 32
+    name: "DIP ID Configuration"
+    
+
+  - platform: internal_temperature
+    name: "Internal Temperature of ESP32"
+
+  # - platform: debug
+  #   free:
+  #     name: "Heap Free"
+  #     state_topic: null
+  #   block:
+  #     name: "Heap Max Block"
+  #     state_topic: null
+  #   loop_time:
+  #     name: "Loop Time"
+  #     state_topic: null
+
+
+binary_sensor:
+  - platform: gpio
+    pin: 
+      number: GPIO09
+      inverted: True
+      ignore_strapping_warning: True
+      mode: 
+        input: True
+        pullup: True
+    name: "Roof button"
+    id: roof_button
+    filters:
+      - delayed_on: 10ms
+      - delayed_off: 10ms
+    # on_click: 
+    #   min_length: 10ms
+    #   max_length: 200ms
+    #   then:
+    #     - switch.toggle: target_on_off
+    # on_press:
+    #   - delay: 200ms
+    #   - if:
+    #       condition:
+    #         binary_sensor.is_on: roof_button
+    #       then:
+    #         - switch.turn_on: target_on_off
+    #         - script.execute: rotate_colour
+    # on_release:
+    #   - script.stop: rotate_colour
+
+
+
+  - platform: gpio
+    pin: 
+      number: GPIO00
+      inverted: True
+      mode: 
+        input: True
+        pullup: True
+    name: "Front button"
+    filters:
+      - delayed_on: 10ms
+      - delayed_off: 10ms
+
+
+  - platform: gpio
+    pin: 
+      number: GPIO07
+      inverted: True
+      mode: 
+        input: True
+        pullup: True
+    id: dip_sw_0
+
+  - platform: gpio
+    pin: 
+      number: GPIO06
+      inverted: True
+      mode: 
+        input: True
+        pullup: True
+    id: dip_sw_1
+
+  - platform: gpio
+    pin: 
+      number: GPIO05
+      inverted: True
+      mode: 
+        input: True
+        pullup: True
+    id: dip_sw_2
+
+  - platform: gpio
+    pin: 
+      number: GPIO04
+      inverted: True
+      mode: 
+        input: True
+        pullup: True
+    id: dip_sw_3
+
+  - platform: gpio
+    pin: 
+      number: GPIO03
+      inverted: True
+      mode: 
+        input: True
+        pullup: True
+    id: dip_sw_4
+
+  - platform: gpio
+    pin: 
+      number: GPIO21
+      inverted: True
+      mode: 
+        input: True
+        pullup: True
+    id: dip_sw_5
+
+  - platform: gpio
+    pin: 
+      number: GPIO20
+      inverted: True
+      mode: 
+        input: True
+        pullup: True
+    id: dip_sw_6
+    name: "DIP Y/Y"
+
+  - platform: gpio
+    pin: 
+      number: GPIO10
+      inverted: True
+      mode: 
+        input: True
+        pullup: True
+    id: dip_sw_7
+    name: "DIP Primary/Secondary"
+
